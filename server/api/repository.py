@@ -3,7 +3,7 @@ import requests
 access_token = ''
 resource_headers = {}
 base_url = "https://api.baubuddy.de/dev/index.php/v1"
-color_codes = {}
+color_codes = {}  #we store all color codes and every new fetched code in this variable to prevent the server from creating unnecessary http requests.
 
 def getToken():
     auth_headers = {
@@ -27,7 +27,7 @@ def getToken():
     return True
 
 def getResource(url):
-    if access_token or getToken():
+    if access_token or getToken(): 
         response = requests.request("GET", url , headers=resource_headers)
         if response.status_code == 401:
             getToken()
@@ -43,7 +43,7 @@ def getLabels():
 
 def getColorCode(ids):
     if ids == None : return ids
-    ids = str(ids).split(',')
+    ids = str(ids).split(',') # sometime we have more than one id in labelIds so we should provide colorCode for each one
 
     def get_code(id):
         c = color_codes.get(id, None)
@@ -67,10 +67,10 @@ def getColorCode(ids):
 
 def init():
     global color_codes
-    lbs = getLabels()
+    lbs = getLabels()  #we can get all labels and store them in memory to speed up and optimize our app
     for lbl in lbs:
         c1 = lbl.get('colorCode', False)
-        children = lbl.get('children', [])
+        children = lbl.get('children', []) # some of color codes were stored in child field so we try to fetch their data
         if c1:
             color_codes[str(lbl['id'])] = c1
         for child in children:
