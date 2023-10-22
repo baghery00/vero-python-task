@@ -1,6 +1,9 @@
 import argparse, requests
 import pandas as pd
 from datetime import datetime
+import logging as logger
+logger.getLogger().setLevel(logger.INFO)
+
 # jinja2 and openpyxl and matplotlib are this script deependencies
 def main():
 
@@ -31,34 +34,39 @@ def main():
     args = parser.parse_args()
     colored = str(args.colored).lower() == 'true'
     keys = args.keys.split(',')
-    file = open(args.file, 'rb')
     try:
+        file = open(args.file, 'rb')
         res = requests.put("http://127.0.0.1:8000/api/vehicles/", files={'file':file})
-        if res.status_code == 200:
-            df = pd.DataFrame(res.json()).sort_values(by=["gruppe"]) #Rows are sorted by response field gruppe
+        if res.status_code != 200:
+            raise Exception(f"please check the http connection")
+        df = pd.DataFrame(res.json()).sort_values(by=["gruppe"]) #Rows are sorted by response field gruppe
 
-            #Columns always contain rnr field
-            if 'rnr' not in df.columns:
-                raise KeyError("Data doesn't contain <rnr> field")
+        #Columns always contain rnr field
+        if 'rnr' not in df.columns:
+            raise KeyError("Data doesn't contain <rnr> field")
 
-            #Only keys that match the input arguments are considered as additional columns (i.e. when the script is invoked with kurzname and info, print two extra columns)
-            extra_keys = list(map(lambda x: x+"_extra" ,keys))
-            extra_cols = df[keys].rename( columns = dict(zip(keys, extra_keys)))
-            df = pd.concat([df,extra_cols], axis=1)
+        #Only keys that match the input arguments are considered as additional columns (i.e. when the script is invoked with kurzname and info, print two extra columns)
+        extra_keys = list(map(lambda x: x+"_extra" ,keys))
+        extra_cols = df[keys].rename( columns = dict(zip(keys, extra_keys)))
+        df = pd.concat([df,extra_cols], axis=1)
 
-            #styling
-            df = df.style.apply(style, 
-                                color_indx = df.columns.get_loc('colorCode') , 
-                                hu_indx= df.columns.get_loc('hu'), 
-                                lbl = 'labelIds' in keys, #If labelIds are given and at least one colorCode could be resolved, use the first colorCode to tint the 
-                                clr = colored, #if the -c flag is True, color each row
-                                axis=1)
-            iso_date = datetime.now().date().isoformat() 
-            df.to_excel(f"vehicles_{iso_date}.xlsx")
-        else:
-            raise ConnectionRefusedError
-    except  Exception as e:
-        raise ValueError(str(e))
+        #styling
+        df = df.style.apply(style, 
+                            color_indx = df.columns.get_loc('colorCode') , 
+                            hu_indx= df.columns.get_loc('hu'), 
+                            lbl = 'labelIds' in keys, #If labelIds are given and at least one colorCode could be resolved, use the first colorCode to tint the 
+                            clr = colored, #if the -c flag is True, color each row
+                            axis=1)
+        file_name = f"vehicles_{datetime.now().date().isoformat()}.xlsx"
+        df.to_excel(file_name)
+        logger.info(f"Process finished succesfuly and you can find the result in {file_name}")
+    except IOError as ioerr:
+        logger.error(f"There is an error: please check the .csv file")
+    except  Exception as err:
+        logger.error(f"There is an error: {str(err)}")
+    finally:
+        if 'file' in locals():
+            file.close()
 
 
 if __name__ == "__main__":
