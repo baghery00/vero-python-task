@@ -1,4 +1,5 @@
 import requests
+import logging as logger
 
 access_token = ''
 resource_headers = {}
@@ -6,34 +7,43 @@ base_url = "https://api.baubuddy.de/dev/index.php/v1"
 color_codes = {}  #we store all color codes and every new fetched code in this variable to prevent the server from creating unnecessary http requests.
 
 def getToken():
-    auth_headers = {
-    "Authorization": "Basic QVBJX0V4cGxvcmVyOjEyMzQ1NmlzQUxhbWVQYXNz",
-    "Content-Type": "application/json"
-    }
-    payload = {
-    "username": "365",
-    "password": "1"
-    }
-    response = requests.request("POST", "https://api.baubuddy.de/index.php/login", json=payload, headers=auth_headers)
-    if response.status_code >= 300:
-        pass #raise error
-    global access_token
-    access_token = response.json()['oauth']['access_token']
-    global resource_headers
-    resource_headers = {
-        "Authorization": f"Bearer {access_token}",
+    try:
+        auth_headers = {
+        "Authorization": "Basic QVBJX0V4cGxvcmVyOjEyMzQ1NmlzQUxhbWVQYXNz",
         "Content-Type": "application/json"
-    }
-    return True
+        }
+        payload = {
+        "username": "365",
+        "password": "1"
+        }
+        response = requests.request("POST", "https://api.baubuddy.de/index.php/login", json=payload, headers=auth_headers)
+        if response.status_code >= 300:
+            logger.error("Important Error: API Authentication failed")
+            return False
+        global access_token
+        access_token = response.json()['oauth']['access_token']
+        global resource_headers
+        resource_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        return True
+    except Exception as ex:
+        logger.error(f"Unexpected error: {str(ex)}")
+        return False
+
 
 def getResource(url):
-    if access_token or getToken(): 
+    if access_token or getToken():
         response = requests.request("GET", url , headers=resource_headers)
+        if response.status_code < 300:
+            return response.json()
         if response.status_code == 401:
             getToken()
             return getResource(url)
         else:
-            return response.json()
+            logger.error(f"There is an error: {response.text}")
+    return []
 
 def getActiveVehicles():
     return getResource(f"{base_url}/vehicles/select/active")

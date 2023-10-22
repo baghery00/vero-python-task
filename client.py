@@ -37,13 +37,15 @@ def main():
     try:
         file = open(args.file, 'rb')
         res = requests.put("http://127.0.0.1:8000/api/vehicles/", files={'file':file})
+        if res.status_code == 500:
+            raise Exception("There is an error in server side")
         if res.status_code != 200:
-            raise Exception(f"please check the http connection")
+            raise Exception("please check the http connection")
         df = pd.DataFrame(res.json()).sort_values(by=["gruppe"]) #Rows are sorted by response field gruppe
 
         #Columns always contain rnr field
         if 'rnr' not in df.columns:
-            raise KeyError("Data doesn't contain <rnr> field")
+            raise Exception("Data doesn't contain <rnr> field")
 
         #Only keys that match the input arguments are considered as additional columns (i.e. when the script is invoked with kurzname and info, print two extra columns)
         extra_keys = list(map(lambda x: x+"_extra" ,keys))
